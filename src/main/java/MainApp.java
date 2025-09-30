@@ -111,6 +111,5 @@ public class MainApp extends Application {
         if (mediaPlayer != null) {
             mediaPlayer.stop();
         }
-        System.out.println("Arrêt");
     }
 }
