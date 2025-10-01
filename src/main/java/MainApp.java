@@ -21,11 +21,14 @@ public class MainApp extends Application {
         listView = new ListView<>();
         Button playBtn = new Button("Play");
         Button stopBtn = new Button("Stop");
+        Button randomBtn = new Button("Lecture aléatoire");
+
 
         playBtn.setOnAction(e -> playSelected());
         stopBtn.setOnAction(e -> stopPlayback());
+        randomBtn.setOnAction(e -> playRandomSequence());
 
-        HBox controls = new HBox(10, playBtn, stopBtn);
+        HBox controls = new HBox(10, playBtn, stopBtn, randomBtn);
         VBox root = new VBox(10, listView, controls);
 
         loadFileNamesFromFTP();
@@ -112,4 +115,61 @@ public class MainApp extends Application {
             mediaPlayer.stop();
         }
     }
+
+    // shuffle la liste de lecture et utilise la méthode  qui joue le prochain fichier dans la séquence
+
+    private void playRandomSequence() {
+        if (fileNames == null || fileNames.isEmpty()) return;
+        List<String> shuffled = new java.util.ArrayList<>(fileNames);
+        java.util.Collections.shuffle(shuffled);
+        playNextInSequence(shuffled, 0);
+    }
+
+    // joue le prochain fichier dans la séquence
+
+    private void playNextInSequence(List<String> sequence, int index) {
+        if (index >= sequence.size()) return;
+        String file = sequence.get(index);
+
+        new Thread(() -> {
+            FTPClient ftp = new FTPClient();
+            try {
+                String tempDir = System.getProperty("java.io.tmpdir");
+                java.nio.file.Path subDir = java.nio.file.Paths.get(tempDir, "audio_temp");
+                java.nio.file.Files.createDirectories(subDir);
+
+                java.nio.file.Path tempFile = subDir.resolve(java.net.URLDecoder.decode(file, java.nio.charset.StandardCharsets.UTF_8));
+
+                if (!java.nio.file.Files.exists(tempFile)) {
+                    ftp.connect(config.host);
+                    ftp.login(config.user, config.pass);
+                    ftp.enterLocalPassiveMode();
+
+                    try (InputStream is = ftp.retrieveFileStream(file)) {
+                        if (is != null) {
+                            java.nio.file.Files.copy(is, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                            ftp.completePendingCommand();
+                        } else {
+                            System.out.println("Erreur lors du téléchargement");
+                            return;
+                        }
+                    }
+                    ftp.logout();
+                    ftp.disconnect();
+                }
+
+                javafx.application.Platform.runLater(() -> {
+                    if (mediaPlayer != null) mediaPlayer.stop();
+                    javafx.scene.media.Media media = new javafx.scene.media.Media(tempFile.toUri().toString());
+                    mediaPlayer = new javafx.scene.media.MediaPlayer(media);
+                    mediaPlayer.setOnEndOfMedia(() -> playNextInSequence(sequence, index + 1));
+                    mediaPlayer.play();
+                });
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
 }
