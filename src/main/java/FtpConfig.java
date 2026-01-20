@@ -8,6 +8,7 @@ public class FtpConfig {
     public String host;
     public String user;
     public String pass;
+    public String port;
 
     public FtpConfig() {
         Properties props = new Properties();
@@ -18,6 +19,7 @@ public class FtpConfig {
                 host = props.getProperty("host");
                 user = props.getProperty("user");
                 pass = props.getProperty("pass");
+                port = props.getProperty("port", "21");
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -25,9 +27,11 @@ public class FtpConfig {
             host = prompt("Adresse FTP :");
             user = prompt("Utilisateur :");
             pass = prompt("Mot de passe :");
+            port = prompt("Port (par défaut 21) :");
             props.setProperty("host", host);
             props.setProperty("user", user);
             props.setProperty("pass", pass);
+            props.setProperty("port", port.isEmpty() ? "21" : port);
             try (FileOutputStream fos = new FileOutputStream(env)) {
                 props.store(fos, "FTP Configuration");
             } catch (IOException e) {
